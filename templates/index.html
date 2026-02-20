@@ -3,41 +3,378 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bootstrap demo</title>
+    <title>Disease Detection</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <style>
+      body {
+        background: linear-gradient(145deg, #f0f7ff 0%, #f7f9fc 40%, #eefaf7 100%);
+      }
+      .main-card {
+        border-radius: 1rem;
+      }
+      .report-card {
+        border-radius: 1rem;
+        overflow: hidden;
+      }
+      .report-header {
+        background: linear-gradient(90deg, #eef4ff 0%, #f3fbf7 100%);
+      }
+      .metric-box {
+        border: 1px solid #e7edf7;
+        border-radius: .8rem;
+        background: #fff;
+      }
+      .section-card {
+        border: 1px solid #e7edf7;
+        border-radius: .8rem;
+        background: #fff;
+      }
+      .section-card ul {
+        padding-left: 1.2rem;
+      }
+      .section-card li {
+        margin-bottom: .35rem;
+      }
+      .medical-illustration {
+        width: 120px;
+        height: 80px;
+      }
+      .chip {
+        border-radius: 999px;
+      }
+      .suggestions-dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        background: #fff;
+        border: 1px solid #dbe6f5;
+        border-radius: .65rem;
+        box-shadow: 0 10px 24px rgba(16, 39, 74, 0.12);
+        max-height: 260px;
+        overflow-y: auto;
+        display: none;
+      }
+      .suggestion-item {
+        width: 100%;
+        text-align: left;
+        padding: .6rem .8rem;
+        border: 0;
+        background: #fff;
+        color: #1f2d3d;
+        font-size: .95rem;
+      }
+      .suggestion-item:hover {
+        background: #f1f6ff;
+      }
+    </style>
   </head>
-  <body>
-    
-    <h1 class="text-center">Health checkup</h1>
-    <div class="p-5 mx-auto" style="background-color: black; color: white; border: 5px solid rgb(0, 0, 0); border-radius: 5px; width: 50%;">
-        <form action="/predict" method="post">
-            <div class="mb-3">
-              <label for="symptoms" class="form-label">Enter Symptoms</label>
-              <input type="text" class="form-control" name="symptoms">
-            <button class="btn btn-primary mt-3" style="width: 100%;">Submit</button>
-          </form>
-    </div>
-    {%if predicted_disease %}
-      <div style="color: red;">Symptoms :<p style="color: white;"> {{user_symptoms}}</p></div>
-      <div style="color: red;">Predicted Disease:<p style="color: white;"> {{predicted_disease}}</p></div>
-      <div style="color: red;">Description of Disease:<p style="color: white;"> {{dis_des}}</p></div>
-      <div style="color: red;">Precaution for this Disease:<p>
-        <ul>
-            {% for i in dis_pre[0] %}
-                <li style="color: white;">{{ i }}</li>
-            {% endfor %}
-        </ul></p>
-      </p></div>
-      <div style="color: red;">Medication for this Disease:<p style="color: white;"> {{dis_med}}</p></div>
-      <div style="color: red;">Diet of Disease:<p style="color: white;"> {{dis_diet}}</p></div>
-      <div style="color: red;">Workout for this Disease:<p> 
-        <ul>
-            {% for i in dis_wrkout %}
-                <li style="color: white;">{{ i }}</li>
-            {% endfor %}
-        </ul></p>
+  <body class="bg-light">
+    <div class="container py-5">
+      <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+          <div class="card shadow border-0 main-card">
+            <div class="card-body p-4 p-md-5">
+              <div class="d-flex justify-content-center mb-2">
+                <svg class="medical-illustration" viewBox="0 0 220 140" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Medical illustration">
+                  <rect x="10" y="20" width="200" height="105" rx="16" fill="#EAF2FF"/>
+                  <circle cx="45" cy="58" r="16" fill="#4F8CFF"/>
+                  <path d="M38 58h14M45 51v14" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                  <rect x="72" y="48" width="118" height="8" rx="4" fill="#8FB4FF"/>
+                  <rect x="72" y="64" width="92" height="8" rx="4" fill="#B7CCFF"/>
+                  <rect x="72" y="80" width="104" height="8" rx="4" fill="#D1DEFF"/>
+                  <path d="M35 104h24l7-10 8 18 10-18 8 10h22" stroke="#36B37E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <h1 class="h3 text-center mb-1">Health Checkup</h1>
+              <p class="text-secondary text-center mb-4">Clinical symptom screening and disease prediction</p>
+
+              <form action="/predict" method="post" id="predictForm">
+                <div class="mb-3">
+                  <label for="symptomInput" class="form-label fw-semibold">Symptoms</label>
+                  <input type="hidden" id="symptoms" name="symptoms" value="{{ user_symptoms if user_symptoms else '' }}">
+                  <div class="position-relative">
+                    <input type="text" class="form-control" id="symptomInput" placeholder="Type at least 3 characters (Example: pain)">
+                    <div id="symptomsSuggestions" class="suggestions-dropdown"></div>
+                  </div>
+                </div>
+                <div id="symptomWarning" class="alert alert-warning py-2 px-3 small mb-3 {% if not warning_message %}d-none{% endif %}" role="alert">{{ warning_message if warning_message else 'Please add at least one symptom before prediction.' }}</div>
+                <div id="symptomChips" class="d-flex flex-wrap gap-2 mb-3"></div>
+                <button class="btn btn-primary w-100" type="submit">Predict Disease</button>
+              </form>
+            </div>
+          </div>
+
+          {% if predicted_disease %}
+            <div class="card shadow border-0 mt-4 report-card">
+              <div class="card-header report-header border-bottom py-3">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                  <div>
+                    <h2 class="h5 mb-0">Clinical Report</h2>
+                    <small class="text-secondary">Automated preliminary assessment</small>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge text-bg-primary px-3 py-2">Prediction Available</span>
+                    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Health icon">
+                      <circle cx="22" cy="22" r="22" fill="#E5F8EF"/>
+                      <path d="M13 24h6l3-6 4 12 3-6h4" stroke="#1EA971" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body p-4">
+                <div class="row g-3 mb-4">
+                  <div class="col-12 col-md-6">
+                    <div class="metric-box p-3 h-100">
+                      <div class="small text-secondary mb-1">Chief Complaint</div>
+                      <div class="fw-semibold">{{ user_symptoms|replace('_', ' ')|title }}</div>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <div class="metric-box p-3 h-100">
+                      <div class="small text-secondary mb-1">Predicted Condition</div>
+                      <div class="fw-semibold text-primary">{{ predicted_disease }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="section-card p-3 mb-3">
+                  <div class="fw-semibold mb-2">Clinical Summary</div>
+                  <p class="mb-0 text-secondary">{{ dis_des }}</p>
+                </div>
+
+                <div class="row g-3">
+                  <div class="col-12 col-md-6">
+                    <div class="section-card p-3 h-100">
+                      <div class="fw-semibold mb-2 text-success">Precautions</div>
+                      <ul class="mb-0">
+                        {% for i in dis_pre[0] %}
+                          <li>{{ i }}</li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <div class="section-card p-3 h-100">
+                      <div class="fw-semibold mb-2 text-primary">Medication Guidance</div>
+                      <ul class="mb-0">
+                        {% for i in dis_med %}
+                          <li>{{ i }}</li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <div class="section-card p-3 h-100">
+                      <div class="fw-semibold mb-2" style="color:#A06A00;">Diet Plan</div>
+                      <ul class="mb-0">
+                        {% for i in dis_diet %}
+                          <li>{{ i }}</li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <div class="section-card p-3 h-100">
+                      <div class="fw-semibold mb-2" style="color:#7A3E9D;">Activity / Workout</div>
+                      <ul class="mb-0">
+                        {% for i in dis_wrkout %}
+                          <li>{{ i }}</li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        </div>
       </div>
-    {% endif %}
+    </div>
+    <script id="symptomsData" type="application/json">{{ symptoms_list|tojson }}</script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script>
+      const symptomInput = document.getElementById('symptomInput');
+      const symptomsHiddenInput = document.getElementById('symptoms');
+      const symptomChips = document.getElementById('symptomChips');
+      const symptomWarning = document.getElementById('symptomWarning');
+      const form = document.getElementById('predictForm');
+      const suggestionsBox = document.getElementById('symptomsSuggestions');
+      const availableSymptoms = JSON.parse(document.getElementById('symptomsData').textContent || '[]');
+      const selectedSymptoms = [];
+      let currentTopMatches = [];
+
+      function normalizeValue(value) {
+        return value.trim().replace(/\s+/g, '_').toLowerCase();
+      }
+
+      function formatSymptom(symptom) {
+        return symptom
+          .replace(/_/g, ' ')
+          .split(' ')
+          .filter(Boolean)
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      }
+
+      function renderChips() {
+        symptomChips.innerHTML = '';
+        selectedSymptoms.forEach((symptom, index) => {
+          const chip = document.createElement('span');
+          chip.className = 'badge text-bg-primary d-inline-flex align-items-center chip';
+          chip.style.fontSize = '0.9rem';
+          chip.style.padding = '0.55em 0.75em';
+          chip.innerHTML = `${formatSymptom(symptom)} <button type="button" class="btn-close btn-close-white ms-2" style="font-size: 0.65rem;" aria-label="Remove"></button>`;
+          chip.querySelector('button').addEventListener('click', () => {
+            selectedSymptoms.splice(index, 1);
+            updateHiddenInput();
+            renderChips();
+          });
+          symptomChips.appendChild(chip);
+        });
+
+        if (selectedSymptoms.length > 0) {
+          symptomWarning.classList.add('d-none');
+        }
+      }
+
+      function updateHiddenInput() {
+        symptomsHiddenInput.value = selectedSymptoms.join(',');
+      }
+
+      function scoreMatch(symptom, query) {
+        if (!query) {
+          return 1;
+        }
+        if (symptom === query) {
+          return 100;
+        }
+        if (symptom.startsWith(query)) {
+          return 80;
+        }
+        if (symptom.includes(query)) {
+          return 60;
+        }
+
+        const tokens = symptom.split('_');
+        if (tokens.some((token) => token.startsWith(query))) {
+          return 40;
+        }
+        return 0;
+      }
+
+      function refreshTopSuggestions(query) {
+        const normalizedQuery = normalizeValue(query);
+
+        if (normalizedQuery.length < 3) {
+          currentTopMatches = [];
+          suggestionsBox.innerHTML = '';
+          suggestionsBox.style.display = 'none';
+          return;
+        }
+
+        currentTopMatches = availableSymptoms
+          .map((symptom) => ({ symptom, score: scoreMatch(symptom.toLowerCase(), normalizedQuery) }))
+          .filter((item) => item.score > 0)
+          .sort((a, b) => b.score - a.score || a.symptom.localeCompare(b.symptom))
+          .slice(0, 10)
+          .map((item) => item.symptom);
+
+        suggestionsBox.innerHTML = '';
+
+        if (!currentTopMatches.length) {
+          suggestionsBox.style.display = 'none';
+          return;
+        }
+
+        currentTopMatches.forEach((match) => {
+          const option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'suggestion-item';
+          option.textContent = formatSymptom(match);
+          option.addEventListener('click', () => {
+            addSymptom(match);
+            symptomInput.value = '';
+            refreshTopSuggestions('');
+            symptomInput.focus();
+          });
+          suggestionsBox.appendChild(option);
+        });
+
+        suggestionsBox.style.display = 'block';
+      }
+
+      function addSymptom(rawSymptom) {
+        const normalized = normalizeValue(rawSymptom);
+        if (!normalized) {
+          return;
+        }
+
+        const matchedSymptom = availableSymptoms.find((item) => item.toLowerCase() === normalized);
+        if (!matchedSymptom) {
+          return;
+        }
+
+        if (!selectedSymptoms.includes(matchedSymptom)) {
+          selectedSymptoms.push(matchedSymptom);
+          updateHiddenInput();
+          renderChips();
+        }
+      }
+
+      function showWarning(message) {
+        symptomWarning.textContent = message;
+        symptomWarning.classList.remove('d-none');
+      }
+
+      if (symptomsHiddenInput.value) {
+        symptomsHiddenInput.value
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .forEach((value) => addSymptom(value));
+      }
+
+      symptomInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+
+          if (currentTopMatches.length) {
+            addSymptom(currentTopMatches[0]);
+          } else {
+            addSymptom(symptomInput.value);
+          }
+
+          symptomInput.value = '';
+          refreshTopSuggestions('');
+        }
+      });
+
+      symptomInput.addEventListener('input', () => {
+        refreshTopSuggestions(symptomInput.value);
+      });
+
+      document.addEventListener('click', (event) => {
+        const clickedInside = suggestionsBox.contains(event.target) || symptomInput.contains(event.target);
+        if (!clickedInside) {
+          suggestionsBox.style.display = 'none';
+        }
+      });
+
+      refreshTopSuggestions('');
+
+      form.addEventListener('submit', (event) => {
+        updateHiddenInput();
+
+        if (!selectedSymptoms.length) {
+          showWarning('Please add at least one symptom before prediction.');
+          event.preventDefault();
+        }
+      });
+    </script>
   </body>
 </html>
